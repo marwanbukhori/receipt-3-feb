@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { User } from './auth/entities/user.entity';
+import { WorkoutsModule } from './workouts/workouts.module';
+import { Workout } from './workouts/entities/workout.entity';
 
 @Module({
   imports: [
@@ -20,12 +22,13 @@ import { User } from './auth/entities/user.entity';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
-        entities: [User],
+        entities: [User, Workout],
         synchronize: true, // Set to false in production
         logging: true, // Add logging to see SQL queries
       }),
     }),
     AuthModule,
+    WorkoutsModule,
   ],
 })
 export class AppModule {}

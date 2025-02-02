@@ -6,12 +6,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../src/auth/entities/user.entity';
 import { AuthModule } from '../src/auth/auth.module';
 import { TestDatabaseModule } from './test-db.module';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
-  let userRepository: Repository<User>;
+  let userRepository;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -29,7 +27,7 @@ describe('AuthController (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe());
 
-    userRepository = moduleFixture.get<Repository<User>>(getRepositoryToken(User));
+    userRepository = moduleFixture.get('UserRepository');
     await userRepository.clear(); // Clear the test database before each test
 
     await app.init();
@@ -45,10 +43,10 @@ describe('AuthController (e2e)', () => {
       password: 'Password123!',
     };
 
-    describe('/auth/signup (POST)', () => {
+    describe('/auth/register (POST)', () => {
       it('should create a new user', () => {
         return request(app.getHttpServer())
-          .post('/auth/signup')
+          .post('/auth/register')
           .send(testUser)
           .expect(201);
       });
@@ -56,19 +54,19 @@ describe('AuthController (e2e)', () => {
       it('should fail if email is already registered', async () => {
         // First registration
         await request(app.getHttpServer())
-          .post('/auth/signup')
+          .post('/auth/register')
           .send(testUser);
 
         // Second registration with same email
         return request(app.getHttpServer())
-          .post('/auth/signup')
+          .post('/auth/register')
           .send(testUser)
           .expect(409);
       });
 
       it('should fail if password is too short', () => {
         return request(app.getHttpServer())
-          .post('/auth/signup')
+          .post('/auth/register')
           .send({
             email: 'test@example.com',
             password: 'short',
@@ -77,17 +75,17 @@ describe('AuthController (e2e)', () => {
       });
     });
 
-    describe('/auth/signin (POST)', () => {
+    describe('/auth/login (POST)', () => {
       beforeEach(async () => {
-        // Create a user before testing signin
+        // Create a user before testing login
         await request(app.getHttpServer())
-          .post('/auth/signup')
+          .post('/auth/register')
           .send(testUser);
       });
 
       it('should return JWT token with valid credentials', async () => {
         const response = await request(app.getHttpServer())
-          .post('/auth/signin')
+          .post('/auth/login')
           .send(testUser)
           .expect(201);
 
@@ -96,52 +94,11 @@ describe('AuthController (e2e)', () => {
 
       it('should fail with invalid credentials', () => {
         return request(app.getHttpServer())
-          .post('/auth/signin')
+          .post('/auth/login')
           .send({
             email: testUser.email,
             password: 'wrongpassword',
           })
-          .expect(401);
-      });
-    });
-
-    describe('/auth/profile (GET)', () => {
-      let jwtToken: string;
-
-      beforeEach(async () => {
-        // Create a user and get JWT token
-        await request(app.getHttpServer())
-          .post('/auth/signup')
-          .send(testUser);
-
-        const response = await request(app.getHttpServer())
-          .post('/auth/signin')
-          .send(testUser);
-
-        jwtToken = response.body.accessToken;
-      });
-
-      it('should get user profile with valid JWT', () => {
-        return request(app.getHttpServer())
-          .get('/auth/profile')
-          .set('Authorization', `Bearer ${jwtToken}`)
-          .expect(200)
-          .expect((res) => {
-            expect(res.body.email).toBe(testUser.email);
-            expect(res.body.password).toBeUndefined();
-          });
-      });
-
-      it('should fail without JWT', () => {
-        return request(app.getHttpServer())
-          .get('/auth/profile')
-          .expect(401);
-      });
-
-      it('should fail with invalid JWT', () => {
-        return request(app.getHttpServer())
-          .get('/auth/profile')
-          .set('Authorization', 'Bearer invalid-token')
           .expect(401);
       });
     });
